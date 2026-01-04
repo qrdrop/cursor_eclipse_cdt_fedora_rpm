@@ -80,9 +80,10 @@ def verify_checksum(file_path, sha512_url):
         print(f"Error checking checksum: {e}")
         return False
 
-def extract_icon(tarball_path, dest_dir):
-    print("Searching for icon in tarball...")
-    icon_name = None
+def extract_and_package_icons(tarball_path, dest_dir):
+    print("Searching for icons in tarball...")
+    icons_to_extract = []
+    
     try:
         # Try opening as gzip first (common for .tar.gz)
         mode = "r:gz"
@@ -94,49 +95,85 @@ def extract_icon(tarball_path, dest_dir):
              tar = tarfile.open(tarball_path, mode)
 
         with tar:
-            # Eclipse icon is usually at eclipse/icon.xpm or similar
-            # We'll look for icon.xpm or the high res icon
-            candidates = [m for m in tar.getmembers() if 'icon.xpm' in m.name or 'eclipse48.png' in m.name or 'eclipse256.png' in m.name]
+            for m in tar.getmembers():
+                name = m.name.split('/')[-1]
+                # Match icon.xpm or eclipse*.png where * is a number or empty
+                if name == 'icon.xpm':
+                    icons_to_extract.append(m)
+                elif name.startswith('eclipse') and name.endswith('.png'):
+                     middle = name[7:-4]
+                     if middle.isdigit() or middle == '':
+                         icons_to_extract.append(m)
             
-            # Prefer higher res png if available
-            best_candidate = None
-            for c in candidates:
-                if 'eclipse256.png' in c.name:
-                    best_candidate = c
-                    break
-            
-            if not best_candidate and candidates:
-                 # Fallback to xpm or any found
-                 best_candidate = sorted(candidates, key=lambda x: len(x.name))[0]
+            if not icons_to_extract:
+                print("No icons found in tarball.")
+                return None
 
-            if best_candidate:
-                print(f"Extracting icon from {best_candidate.name}")
-                f = tar.extractfile(best_candidate)
-                # Determine extension
-                ext = ".xpm"
-                if best_candidate.name.endswith(".png"):
-                    ext = ".png"
-                
-                icon_name = f"eclipse{ext}"
-                dest_icon_path = dest_dir / icon_name
-                with open(dest_icon_path, "wb") as out:
-                    out.write(f.read())
-                print(f"Icon saved to {dest_icon_path}")
+            print(f"Found {len(icons_to_extract)} icons. Extracting and packaging...")
+            
+            # Create a tarball for icons
+            icons_archive_name = "eclipse-icons.tar.gz"
+            icons_archive_path = dest_dir / icons_archive_name
+            
+            with tarfile.open(icons_archive_path, "w:gz") as icons_tar:
+                for m in icons_to_extract:
+                    # Rename to just filename to flatten structure in our icons tarball
+                    f = tar.extractfile(m)
+                    info = tarfile.TarInfo(name=m.name.split('/')[-1])
+                    info.size = m.size
+                    icons_tar.addfile(info, fileobj=f)
+            
+            print(f"Icons packaged into {icons_archive_path}")
+            return icons_archive_name
+
     except Exception as e:
-        print(f"Error extracting icon: {e}")
-        
-    return icon_name
+        print(f"Error extracting icons: {e}")
+        return None
 
-def create_spec_file(flavor, version, tarball_name, icon_filename):
+def create_spec_file(flavor, version, tarball_name, icons_archive_name):
     package_name = f"eclipse-{flavor}"
     rpm_version = version.replace("-", ".")
     
     # Capitalize flavor for summary/description
     flavor_display = flavor.upper() if len(flavor) <= 3 else flavor.capitalize()
     
-    # Use default icon if none extracted
-    if not icon_filename:
-        icon_filename = "eclipse.png" 
+    icons_source_entry = ""
+    icons_prep_entry = ""
+    icons_install_entry = ""
+    
+    if icons_archive_name:
+        icons_source_entry = f"Source1:        {icons_archive_name}"
+        # %setup -a 1 means unpack Source1 (icons) after Source0
+        icons_prep_entry = "-a 1" 
+        
+        icons_install_entry = f"""
+# Install Icons
+# We unpacked icons into the build dir root (because flattened in tar)
+for icon in eclipse*.png icon.xpm; do
+    if [ ! -f "$icon" ]; then continue; fi
+    
+    # Determine size
+    if [[ "$icon" == "icon.xpm" ]]; then
+        install -D -m 644 "$icon" %{{buildroot}}%{{_datadir}}/pixmaps/{package_name}.xpm
+        continue
+    fi
+    
+    # eclipse<size>.png or eclipse.png
+    # Extract number
+    size=$(echo "$icon" | sed 's/[^0-9]*//g')
+    
+    if [ -z "$size" ]; then
+        # fallback for eclipse.png (often 256 or high res) -> pixmaps
+        install -D -m 644 "$icon" %{{buildroot}}%{{_datadir}}/pixmaps/{package_name}.png
+    else
+        # Install to hicolor
+        install -D -m 644 "$icon" %{{buildroot}}%{{_datadir}}/icons/hicolor/${{size}}x${{size}}/apps/{package_name}.png
+    fi
+done
+"""
+    else:
+        # Fallback if no icons found (should not happen with valid eclipse)
+        icons_install_entry = "# No icons found to install"
 
     spec_content = f"""
 %define __jar_repack 0
@@ -150,8 +187,7 @@ Summary:        Eclipse IDE for {flavor_display} Developers
 License:        EPL-2.0
 URL:            https://www.eclipse.org/
 Source0:        {tarball_name}
-# Source1 is the icon
-Source1:        {icon_filename}
+{icons_source_entry}
 
 BuildRequires:  desktop-file-utils
 # Use modern dependency filtering
@@ -165,7 +201,12 @@ Eclipse IDE for {flavor_display} Developers.
 # Create a specific build directory to avoid collision
 mkdir -p %{{name}}-%{{version}}-build
 cd %{{name}}-%{{version}}-build
+# Extract Source0 (Eclipse)
 tar -xf %{{SOURCE0}}
+# Extract Source1 (Icons) if present
+if [ -n "%{{SOURCE1}}" ]; then
+    tar -xf %{{SOURCE1}}
+fi
 
 %build
 cd %{{name}}-%{{version}}-build
@@ -221,11 +262,7 @@ find %{{buildroot}}/opt/{package_name}/plugins -type f \\( \\
     -name "*.dll" \\
 \\) -delete
 
-# Install Icon
-mkdir -p %{{buildroot}}%{{_datadir}}/pixmaps
-# Determine icon extension from Source1
-ICON_EXT=$(echo %{{SOURCE1}} | awk -F. '{{print $NF}}')
-cp %{{SOURCE1}} %{{buildroot}}%{{_datadir}}/pixmaps/{package_name}.$ICON_EXT
+{icons_install_entry}
 
 # Create Desktop Entry
 mkdir -p %{{buildroot}}%{{_datadir}}/applications
@@ -253,6 +290,7 @@ chmod 755 %{{buildroot}}%{{_bindir}}/{package_name}
 /opt/{package_name}
 %{{_bindir}}/{package_name}
 %{{_datadir}}/applications/{package_name}.desktop
+%{{_datadir}}/icons/hicolor/*/apps/{package_name}.png
 %{{_datadir}}/pixmaps/{package_name}.*
 
 %changelog
@@ -324,7 +362,7 @@ def main():
     flavor, version = parse_filename(filename)
     print(f"Detected Flavor: {flavor}, Version: {version}")
     
-    icon_name = extract_icon(dest_path, RPMBUILD_DIR / "SOURCES")
+    icon_name = extract_and_package_icons(dest_path, RPMBUILD_DIR / "SOURCES")
     
     create_spec_file(flavor, version, filename, icon_name)
     print(f"Preparation complete for eclipse-{flavor}.")
