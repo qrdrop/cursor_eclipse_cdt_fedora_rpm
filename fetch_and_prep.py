@@ -174,6 +174,41 @@ rm -rf %{{buildroot}}
 mkdir -p %{{buildroot}}/opt/{package_name}
 cp -r eclipse/* %{{buildroot}}/opt/{package_name}/
 
+# Cleanup unused plugins and native libs for other architectures
+# Remove Arch-specific fragments
+rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.aarch64*
+rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.arm*
+rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.ppc*
+rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.riscv*
+rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.s390*
+rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.sparc*
+rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.mips*
+
+# Remove OS-specific fragments not for Linux
+rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.macosx*
+rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.win32*
+
+# Remove JNA/JFFI native lib directories for other arches
+# This handles the nested native libraries inside plugins (like com.sun.jna and com.github.jnr.jffi)
+find %{{buildroot}}/opt/{package_name}/plugins -type d | while read dir; do
+    case "$dir" in
+        */jni|*/com/sun/jna)
+            find "$dir" -mindepth 1 -maxdepth 1 -type d \\( \\
+                -name "*aarch64*" -o \\
+                -name "*arm*" -o \\
+                -name "*ppc*" -o \\
+                -name "*s390*" -o \\
+                -name "*riscv*" -o \\
+                -name "*mips*" -o \\
+                -name "*sparc*" -o \\
+                -name "*loongarch*" -o \\
+                -name "*freebsd*" -o \\
+                -name "*sunos*" \\
+            \\) -exec rm -rf {{}} +
+            ;;
+    esac
+done
+
 # Install Icon
 mkdir -p %{{buildroot}}%{{_datadir}}/pixmaps
 # Determine icon extension from Source1
