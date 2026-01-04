@@ -33,4 +33,12 @@ echo "Building RPM..."
 # We define _topdir to point to our local rpmbuild directory
 rpmbuild --define "_topdir $RPMBUILD_DIR" -bb "$SPEC_FILE"
 
+# Calculate SHA512 of the generated RPM
+echo "Calculating checksums..."
+find "$RPMBUILD_DIR/RPMS" -name "*.rpm" | while read rpm_file; do
+    sha512sum "$rpm_file" > "$rpm_file.sha512"
+    echo "Generated checksum for $(basename "$rpm_file")"
+    cat "$rpm_file.sha512"
+done
+
 echo "Build complete. RPMs should be in $RPMBUILD_DIR/RPMS/"
