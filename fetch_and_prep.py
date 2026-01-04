@@ -380,12 +380,5 @@ def main():
     create_spec_file(flavor, version, filename, icon_name)
     print(f"Preparation complete for eclipse-{flavor}.")
 
-import time
-
 if __name__ == "__main__":
-    start_time = time.time()
     main()
-    end_time = time.time()
-    
-    elapsed_time = end_time - start_time
-    print(f"\nExecution time: {elapsed_time:.2f} seconds")

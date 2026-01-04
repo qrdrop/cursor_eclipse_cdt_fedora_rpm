@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Measure runtime
+SECONDS=0
+
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
@@ -41,4 +44,11 @@ find "$RPMBUILD_DIR/RPMS" -name "*.rpm" | while read rpm_file; do
     cat "$rpm_file.sha512"
 done
 
+# Runtime output
+ELAPSED=$SECONDS
+HOURS=$((ELAPSED / 3600))
+MINUTES=$(((ELAPSED % 3600) / 60))
+SECONDS_REST=$((ELAPSED % 60))
+
 echo "Build complete. RPMs should be in $RPMBUILD_DIR/RPMS/"
+echo "Total runtime: ${HOURS}h ${MINUTES}m ${SECONDS_REST}s"
