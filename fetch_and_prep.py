@@ -237,7 +237,7 @@ cat > %{{buildroot}}%{{_datadir}}/applications/{package_name}.desktop <<EOF
 [Desktop Entry]
 Name=Eclipse {flavor_display}
 Comment=Eclipse IDE for {flavor_display} Developers
-Exec=/opt/{package_name}/eclipse
+Exec={package_name}
 Icon={package_name}
 Terminal=false
 Type=Application
@@ -245,8 +245,13 @@ Categories=Development;IDE;
 StartupNotify=true
 EOF
 
+# Create symlink in /usr/bin
+mkdir -p %{{buildroot}}%{{_bindir}}
+ln -s /opt/{package_name}/eclipse %{{buildroot}}%{{_bindir}}/{package_name}
+
 %files
 /opt/{package_name}
+%{{_bindir}}/{package_name}
 %{{_datadir}}/applications/{package_name}.desktop
 %{{_datadir}}/pixmaps/{package_name}.*
 
