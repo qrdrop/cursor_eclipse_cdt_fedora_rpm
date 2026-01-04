@@ -1,0 +1,4 @@
+rpmbuild/
+venv/
+__pycache__/
+*.pyc
