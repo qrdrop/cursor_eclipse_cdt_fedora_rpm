@@ -49,22 +49,36 @@ def parse_filename(filename):
         
     return "eclipse", "unknown"
 
-def download_file(url, dest_path):
-    print(f"Downloading {url} to {dest_path}")
-    response = requests.get(url, stream=True)
-    total_size = int(response.headers.get('content-length', 0))
-    block_size = 1024
-    
-    with open(dest_path, 'wb') as f, tqdm(
-        desc=dest_path.name,
-        total=total_size,
-        unit='iB',
-        unit_scale=True,
-        unit_divisor=1024,
-    ) as bar:
-        for data in response.iter_content(block_size):
-            size = f.write(data)
-            bar.update(size)
+import hashlib
+
+def verify_checksum(file_path, sha512_url):
+    print(f"Downloading checksum from {sha512_url}...")
+    try:
+        response = requests.get(sha512_url)
+        response.raise_for_status()
+        # Checksum file format usually: "SHA512_HASH  FILENAME" or just "SHA512_HASH"
+        expected_hash = response.text.split()[0].strip()
+        print(f"Expected SHA512: {expected_hash[:16]}...")
+        
+        print(f"Calculating SHA512 for {file_path.name}...")
+        sha512_hash = hashlib.sha512()
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha512_hash.update(byte_block)
+        
+        calculated_hash = sha512_hash.hexdigest()
+        print(f"Calculated SHA512: {calculated_hash[:16]}...")
+        
+        if calculated_hash.lower() == expected_hash.lower():
+            print("Checksum verified successfully.")
+            return True
+        else:
+            print("Checksum verification FAILED!")
+            return False
+            
+    except Exception as e:
+        print(f"Error checking checksum: {e}")
+        return False
 
 def extract_icon(tarball_path, dest_dir):
     print("Searching for icon in tarball...")
@@ -196,6 +210,23 @@ EOF
     print(f"Created SPEC file at {spec_path}")
     return spec_path
 
+def download_file(url, dest_path):
+    print(f"Downloading {url} to {dest_path}")
+    response = requests.get(url, stream=True)
+    total_size = int(response.headers.get('content-length', 0))
+    block_size = 1024
+    
+    with open(dest_path, 'wb') as f, tqdm(
+        desc=dest_path.name,
+        total=total_size,
+        unit='iB',
+        unit_scale=True,
+        unit_divisor=1024,
+    ) as bar:
+        for data in response.iter_content(block_size):
+            size = f.write(data)
+            bar.update(size)
+
 def main():
     setup_directories()
     
@@ -208,10 +239,31 @@ def main():
     filename = unquote(filename)
     dest_path = RPMBUILD_DIR / "SOURCES" / filename
     
-    if not dest_path.exists():
+    # Download file if not exists or check failed (will be implemented below)
+    download_needed = not dest_path.exists()
+    
+    if download_needed:
         download_file(url, dest_path)
     else:
-        print(f"File {dest_path} already exists. Skipping download.")
+        print(f"File {dest_path} already exists. Verifying checksum...")
+        
+    # Verify checksum
+    # Construct checksum URL: usually append .sha512
+    # Note: Eclipse mirrors sometimes have specific structures, but usually .sha512 works on the file URL
+    sha512_url = url + ".sha512"
+    if not verify_checksum(dest_path, sha512_url):
+        print("Checksum verification failed or could not be performed.")
+        # If the file existed but failed checksum, we might want to re-download.
+        # But for now, we just warn or exit.
+        if not download_needed:
+             print("Existing file is corrupt. Re-downloading...")
+             download_file(url, dest_path)
+             if not verify_checksum(dest_path, sha512_url):
+                 print("Checksum failed even after re-download. Aborting.")
+                 sys.exit(1)
+        else:
+             print("Downloaded file is corrupt. Aborting.")
+             sys.exit(1)
         
     flavor, version = parse_filename(filename)
     print(f"Detected Flavor: {flavor}, Version: {version}")
