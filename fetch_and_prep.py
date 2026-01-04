@@ -154,6 +154,13 @@ Source0:        {tarball_name}
 Source1:        {icon_filename}
 
 BuildRequires:  desktop-file-utils
+# Disable automatic dependency generation to avoid picking up bundled internal libraries
+%define _use_internal_dependency_generator 0
+%define __find_requires %{{nil}}
+%define __find_provides %{{nil}}
+# Alternatively, filtering:
+%global __provides_exclude_from ^/opt/{package_name}/.*$
+%global __requires_exclude_from ^/opt/{package_name}/.*$
 
 %description
 Eclipse IDE for {flavor_display} Developers.
