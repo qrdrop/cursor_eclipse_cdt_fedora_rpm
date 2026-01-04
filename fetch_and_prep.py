@@ -136,12 +136,17 @@ BuildRequires:  desktop-file-utils
 Eclipse IDE for {flavor_display} Developers.
 
 %prep
-%setup -q -c
+# Create a specific build directory to avoid collision
+mkdir -p %{name}-%{version}-build
+cd %{name}-%{version}-build
+tar -xf %{SOURCE0}
 
 %build
+cd %{name}-%{version}-build
 # Nothing to build, it is a binary release
 
 %install
+cd %{name}-%{version}-build
 rm -rf %{{buildroot}}
 mkdir -p %{{buildroot}}/opt/{package_name}
 cp -r eclipse/* %{{buildroot}}/opt/{package_name}/
