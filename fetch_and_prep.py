@@ -36,7 +36,7 @@ def find_latest_release_url():
         
         if not release_dirs:
             print("No release directories found.")
-            return None
+            return None, None
 
         # Sort to find latest (lexicographical sort works for YYYY-MM)
         latest_release = sorted(release_dirs)[-1]
@@ -128,6 +128,7 @@ def create_spec_file(version, icon_filename):
     spec_content = f"""
 %define __jar_repack 0
 %define debug_package %{{nil}}
+%define __os_install_post %{{nil}}
 
 Name:           eclipse-cpp
 Version:        {rpm_version}
@@ -140,7 +141,6 @@ Source0:        eclipse-cpp-{version}-R-linux-gtk-x86_64.tar.gz
 Source1:        {icon_filename if icon_filename else "eclipse.png"}
 
 BuildRequires:  desktop-file-utils
-Requires:       java-17-openjdk >= 17
 
 %description
 The essential tools for any C/C++ developer, including a C/C++ IDE, a Git client, XML Editor, Mylyn, Maven integration and WindowBuilder.
