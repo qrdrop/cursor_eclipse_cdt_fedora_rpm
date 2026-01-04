@@ -21,10 +21,10 @@ python3 fetch_and_prep.py
 # Define RPM build root
 RPMBUILD_DIR=$(pwd)/rpmbuild
 
-# Verify spec file exists
-SPEC_FILE="$RPMBUILD_DIR/SPECS/eclipse-cpp.spec"
-if [ ! -f "$SPEC_FILE" ]; then
-    echo "Error: Spec file not found at $SPEC_FILE"
+# Verify spec file exists (find the latest generated one)
+SPEC_FILE=$(find "$RPMBUILD_DIR/SPECS" -name "eclipse-*.spec" | head -n 1)
+if [ -z "$SPEC_FILE" ]; then
+    echo "Error: No Spec file found in $RPMBUILD_DIR/SPECS"
     exit 1
 fi
 
