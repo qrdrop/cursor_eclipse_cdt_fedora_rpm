@@ -105,26 +105,23 @@ def extract_and_package_icons(tarball_path, dest_dir):
                      if middle.isdigit() or middle == '':
                          icons_to_extract.append(m)
             
-            if not icons_to_extract:
-                print("No icons found in tarball.")
-                return None
-
-            print(f"Found {len(icons_to_extract)} icons. Extracting and packaging...")
+            # Create tarball for icons if needed
+            if icons_to_extract:
+                 icons_archive_name = "eclipse-icons.tar.gz"
+                 icons_archive_path = dest_dir / icons_archive_name
+                 
+                 print(f"Found {len(icons_to_extract)} icons. Extracting and packaging...")
+                 with tarfile.open(icons_archive_path, "w:gz") as icons_tar:
+                    for m in icons_to_extract:
+                        f = tar.extractfile(m)
+                        info = tarfile.TarInfo(name=m.name.split('/')[-1])
+                        info.size = m.size
+                        icons_tar.addfile(info, fileobj=f)
+                 print(f"Icons packaged into {icons_archive_path}")
+                 return icons_archive_name
             
-            # Create a tarball for icons
-            icons_archive_name = "eclipse-icons.tar.gz"
-            icons_archive_path = dest_dir / icons_archive_name
-            
-            with tarfile.open(icons_archive_path, "w:gz") as icons_tar:
-                for m in icons_to_extract:
-                    # Rename to just filename to flatten structure in our icons tarball
-                    f = tar.extractfile(m)
-                    info = tarfile.TarInfo(name=m.name.split('/')[-1])
-                    info.size = m.size
-                    icons_tar.addfile(info, fileobj=f)
-            
-            print(f"Icons packaged into {icons_archive_path}")
-            return icons_archive_name
+            print("No icons found in tarball.")
+            return None
 
     except Exception as e:
         print(f"Error extracting icons: {e}")
