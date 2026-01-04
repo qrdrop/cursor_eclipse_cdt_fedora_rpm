@@ -187,6 +187,7 @@ Source0:        {tarball_name}
 {icons_source_entry}
 
 BuildRequires:  desktop-file-utils
+Requires:       hicolor-icon-theme
 # Use modern dependency filtering
 %global __provides_exclude_from ^/opt/{package_name}/.*$
 %global __requires_exclude_from ^/opt/{package_name}/.*$
@@ -273,6 +274,7 @@ Terminal=false
 Type=Application
 Categories=Development;IDE;
 StartupNotify=true
+StartupWMClass=Eclipse
 EOF
 
 # Create wrapper script in /usr/bin instead of symlink
@@ -289,6 +291,20 @@ chmod 755 %{{buildroot}}%{{_bindir}}/{package_name}
 %{{_datadir}}/applications/{package_name}.desktop
 %{{_datadir}}/icons/hicolor/*/apps/{package_name}.png
 %{{_datadir}}/pixmaps/{package_name}.*
+
+%post
+touch --no-create %{{_datadir}}/icons/hicolor &>/dev/null || :
+update-desktop-database &> /dev/null || :
+
+%postun
+if [ $1 -eq 0 ] ; then
+    touch --no-create %{{_datadir}}/icons/hicolor &>/dev/null || :
+    gtk-update-icon-cache %{{_datadir}}/icons/hicolor &>/dev/null || :
+fi
+update-desktop-database &> /dev/null || :
+
+%posttrans
+gtk-update-icon-cache %{{_datadir}}/icons/hicolor &>/dev/null || :
 
 %changelog
 * {datetime.datetime.now().strftime("%a %b %d %Y")} Assistant <assistant@example.com> - {rpm_version}-1
