@@ -70,7 +70,16 @@ def extract_icon(tarball_path, dest_dir):
     print("Searching for icon in tarball...")
     icon_name = None
     try:
-        with tarfile.open(tarball_path, "r:gz") as tar:
+        # Try opening as gzip first (common for .tar.gz)
+        mode = "r:gz"
+        try:
+            tar = tarfile.open(tarball_path, mode)
+        except tarfile.ReadError:
+             # Fallback to r:* if not gz, or just r
+             mode = "r"
+             tar = tarfile.open(tarball_path, mode)
+
+        with tar:
             # Eclipse icon is usually at eclipse/icon.xpm or similar
             # We'll look for icon.xpm or the high res icon
             candidates = [m for m in tar.getmembers() if 'icon.xpm' in m.name or 'eclipse48.png' in m.name or 'eclipse256.png' in m.name]
@@ -137,16 +146,16 @@ Eclipse IDE for {flavor_display} Developers.
 
 %prep
 # Create a specific build directory to avoid collision
-mkdir -p %{name}-%{version}-build
-cd %{name}-%{version}-build
-tar -xf %{SOURCE0}
+mkdir -p %{{name}}-%{{version}}-build
+cd %{{name}}-%{{version}}-build
+tar -xf %{{SOURCE0}}
 
 %build
-cd %{name}-%{version}-build
+cd %{{name}}-%{{version}}-build
 # Nothing to build, it is a binary release
 
 %install
-cd %{name}-%{version}-build
+cd %{{name}}-%{{version}}-build
 rm -rf %{{buildroot}}
 mkdir -p %{{buildroot}}/opt/{package_name}
 cp -r eclipse/* %{{buildroot}}/opt/{package_name}/
