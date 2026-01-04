@@ -20,11 +20,11 @@ def setup_directories():
     print(f"Created rpmbuild structure in {RPMBUILD_DIR.absolute()}")
 
 def get_download_url():
-    print("Please enter the download URL for the Eclipse tarball:")
+    print("Please enter the a direct download link for the Eclipse tarball:")
     print("Example: https://eclipse.mirror.liteserver.nl/technology/epp/downloads/release/2025-12/R/eclipse-cpp-2025-12-R-linux-gtk-x86_64.tar.gz")
     if len(sys.argv) > 1:
         return sys.argv[1]
-    
+
     try:
         url = input("URL: ").strip()
         return url
@@ -37,7 +37,7 @@ def parse_filename(filename):
     match = re.match(r'eclipse-([a-z]+)-(\d{4}-\d{2})(-R)?-linux-gtk-x86_64\.tar\.gz', filename)
     if match:
         return match.group(1), match.group(2) # flavor, version
-    
+
     # Fallback/Loose match
     parts = filename.split('-')
     if len(parts) >= 3 and parts[0] == 'eclipse':
@@ -46,7 +46,7 @@ def parse_filename(filename):
         version_match = re.search(r'\d{4}-\d{2}', filename)
         version = version_match.group(0) if version_match else "unknown"
         return flavor, version
-        
+
     return "eclipse", "unknown"
 
 import hashlib
@@ -59,23 +59,23 @@ def verify_checksum(file_path, sha512_url):
         # Checksum file format usually: "SHA512_HASH  FILENAME" or just "SHA512_HASH"
         expected_hash = response.text.split()[0].strip()
         print(f"Expected SHA512: {expected_hash[:16]}...")
-        
+
         print(f"Calculating SHA512 for {file_path.name}...")
         sha512_hash = hashlib.sha512()
         with open(file_path, "rb") as f:
             for byte_block in iter(lambda: f.read(4096), b""):
                 sha512_hash.update(byte_block)
-        
+
         calculated_hash = sha512_hash.hexdigest()
         print(f"Calculated SHA512: {calculated_hash[:16]}...")
-        
+
         if calculated_hash.lower() == expected_hash.lower():
             print("Checksum verified successfully.")
             return True
         else:
             print("Checksum verification FAILED!")
             return False
-            
+
     except Exception as e:
         print(f"Error checking checksum: {e}")
         return False
@@ -83,7 +83,7 @@ def verify_checksum(file_path, sha512_url):
 def extract_and_package_icons(tarball_path, dest_dir):
     print("Searching for icons in tarball...")
     icons_to_extract = []
-    
+
     try:
         # Try opening as gzip first (common for .tar.gz)
         mode = "r:gz"
@@ -104,12 +104,12 @@ def extract_and_package_icons(tarball_path, dest_dir):
                      middle = name[7:-4]
                      if middle.isdigit() or middle == '':
                          icons_to_extract.append(m)
-            
+
             # Create tarball for icons if needed
             if icons_to_extract:
                  icons_archive_name = "eclipse-icons.tar.gz"
                  icons_archive_path = dest_dir / icons_archive_name
-                 
+
                  print(f"Found {len(icons_to_extract)} icons. Extracting and packaging...")
                  with tarfile.open(icons_archive_path, "w:gz") as icons_tar:
                     for m in icons_to_extract:
@@ -119,7 +119,7 @@ def extract_and_package_icons(tarball_path, dest_dir):
                         icons_tar.addfile(info, fileobj=f)
                  print(f"Icons packaged into {icons_archive_path}")
                  return icons_archive_name
-            
+
             print("No icons found in tarball.")
             return None
 
@@ -130,19 +130,19 @@ def extract_and_package_icons(tarball_path, dest_dir):
 def create_spec_file(flavor, version, tarball_name, icons_archive_name):
     package_name = f"eclipse-{flavor}"
     rpm_version = version.replace("-", ".")
-    
+
     # Capitalize flavor for summary/description
     flavor_display = flavor.upper() if len(flavor) <= 3 else flavor.capitalize()
-    
+
     icons_source_entry = ""
     icons_prep_entry = ""
     icons_install_entry = ""
-    
+
     if icons_archive_name:
         icons_source_entry = f"Source1:        {icons_archive_name}"
         # %setup -a 1 means unpack Source1 (icons) after Source0
-        icons_prep_entry = "-a 1" 
-        
+        icons_prep_entry = "-a 1"
+
         icons_install_entry = f"""
 # Install Icons
 # We unpacked icons into the build dir root (because flattened in tar)
@@ -310,7 +310,7 @@ gtk-update-icon-cache %{{_datadir}}/icons/hicolor &>/dev/null || :
 * {datetime.datetime.now().strftime("%a %b %d %Y")} Assistant <assistant@example.com> - {rpm_version}-1
 - Auto-generated RPM for Eclipse {flavor} {version}
 """
-    
+
     spec_path = RPMBUILD_DIR / "SPECS" / f"{package_name}.spec"
     with open(spec_path, "w") as f:
         f.write(spec_content)
@@ -322,7 +322,7 @@ def download_file(url, dest_path):
     response = requests.get(url, stream=True)
     total_size = int(response.headers.get('content-length', 0))
     block_size = 1024
-    
+
     with open(dest_path, 'wb') as f, tqdm(
         desc=dest_path.name,
         total=total_size,
@@ -336,24 +336,24 @@ def download_file(url, dest_path):
 
 def main():
     setup_directories()
-    
+
     url = get_download_url()
     if not url:
         print("No URL provided. Exiting.")
         sys.exit(1)
-        
+
     filename = url.split('/')[-1]
     filename = unquote(filename)
     dest_path = RPMBUILD_DIR / "SOURCES" / filename
-    
+
     # Download file if not exists or check failed (will be implemented below)
     download_needed = not dest_path.exists()
-    
+
     if download_needed:
         download_file(url, dest_path)
     else:
         print(f"File {dest_path} already exists. Verifying checksum...")
-        
+
     # Verify checksum
     # Construct checksum URL: usually append .sha512
     # Note: Eclipse mirrors sometimes have specific structures, but usually .sha512 works on the file URL
@@ -371,12 +371,12 @@ def main():
         else:
              print("Downloaded file is corrupt. Aborting.")
              sys.exit(1)
-        
+
     flavor, version = parse_filename(filename)
     print(f"Detected Flavor: {flavor}, Version: {version}")
-    
+
     icon_name = extract_and_package_icons(dest_path, RPMBUILD_DIR / "SOURCES")
-    
+
     create_spec_file(flavor, version, filename, icon_name)
     print(f"Preparation complete for eclipse-{flavor}.")
 

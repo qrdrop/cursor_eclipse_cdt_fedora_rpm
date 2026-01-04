@@ -3,7 +3,7 @@ Eclipse RPM Packager for Fedora
 
 Project Description
 -------------------
-This project provides a set of automated scripts to generate native RPM packages for the Eclipse IDE (specifically targeting the C/C++ Developers edition, but capable of handling others) on Fedora and RHEL-based systems.
+For lazy sysadmins who want to distribute Eclipse via RPM/dnf. This project provides a set of automated scripts to generate native RPM packages for the Eclipse IDE (specifically targeting the C/C++ Developers edition, but capable of handling others) on Fedora and RHEL-based systems.
 
 It performs the following automated tasks:
 1. Downloads the specified Eclipse tarball from official mirrors.
@@ -21,9 +21,9 @@ Usage
    
    ./build.sh
 
-3. When prompted, enter the URL of the Eclipse tarball you wish to package. You can find these on the official Eclipse download page.
+3. When prompted, enter the URL of the Eclipse tarball you wish to package. You can find these on the official Eclipse download page https://www.eclipse.org/downloads/packages/. Then select your package and copy "the direct link to file (download starts immediately from best mirror)"
    
-   Example URL: https://eclipse.mirror.liteserver.nl/technology/epp/downloads/release/2025-12/R/eclipse-cpp-2025-12-R-linux-gtk-x86_64.tar.gz
+   Example URL: https://www.eclipse.org/downloads/download.php?file=/technology/epp/downloads/release/2025-12/R/eclipse-cpp-2025-12-R-linux-gtk-x86_64.tar.gz&r=1
 
 4. Once the build completes, the RPM package will be available in:
    `rpmbuild/RPMS/$platform/`
@@ -31,6 +31,10 @@ Usage
 5. Install the generated RPM:
    
    sudo dnf install rpmbuild/RPMS/$platform/eclipse-cpp-*.rpm
+
+Security Note
+-------------
+The packages are not signed. If you implement this, please let me know.
 
 Dependencies Note
 -----------------
