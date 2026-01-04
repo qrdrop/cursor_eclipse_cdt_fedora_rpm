@@ -188,26 +188,35 @@ rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.mips*
 rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.macosx*
 rm -rf %{{buildroot}}/opt/{package_name}/plugins/*.win32*
 
-# Remove JNA/JFFI native lib directories for other arches
-# This handles the nested native libraries inside plugins (like com.sun.jna and com.github.jnr.jffi)
-find %{{buildroot}}/opt/{package_name}/plugins -type d | while read dir; do
-    case "$dir" in
-        */jni|*/com/sun/jna)
-            find "$dir" -mindepth 1 -maxdepth 1 -type d \\( \\
-                -name "*aarch64*" -o \\
-                -name "*arm*" -o \\
-                -name "*ppc*" -o \\
-                -name "*s390*" -o \\
-                -name "*riscv*" -o \\
-                -name "*mips*" -o \\
-                -name "*sparc*" -o \\
-                -name "*loongarch*" -o \\
-                -name "*freebsd*" -o \\
-                -name "*sunos*" \\
-            \\) -exec rm -rf {{}} +
-            ;;
-    esac
-done
+# Remove JNA/JFFI native lib directories for other arches/OSes
+# Broadly find any directory that looks like a non-linux/non-x86_64 target
+find %{{buildroot}}/opt/{package_name}/plugins -type d \\( \\
+    -name "*aarch64*" -o \\
+    -name "*arm*" -o \\
+    -name "*ppc*" -o \\
+    -name "*riscv*" -o \\
+    -name "*s390*" -o \\
+    -name "*sparc*" -o \\
+    -name "*mips*" -o \\
+    -name "*loongarch*" -o \\
+    -name "*freebsd*" -o \\
+    -name "*openbsd*" -o \\
+    -name "*netbsd*" -o \\
+    -name "*dragonfly*" -o \\
+    -name "*sunos*" -o \\
+    -name "*solaris*" -o \\
+    -name "*aix*" -o \\
+    -name "*darwin*" -o \\
+    -name "*macosx*" -o \\
+    -name "*win32*" -o \\
+    -name "*windows*" \\
+\\) -exec rm -rf {{}} +
+
+# Also explicitly remove any .so / .dll / .dylib files that might be in odd places if they match these patterns
+find %{{buildroot}}/opt/{package_name}/plugins -type f \\( \\
+    -name "*.dylib" -o \\
+    -name "*.dll" \\
+\\) -delete
 
 # Install Icon
 mkdir -p %{{buildroot}}%{{_datadir}}/pixmaps
