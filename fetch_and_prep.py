@@ -154,11 +154,7 @@ Source0:        {tarball_name}
 Source1:        {icon_filename}
 
 BuildRequires:  desktop-file-utils
-# Disable automatic dependency generation to avoid picking up bundled internal libraries
-%define _use_internal_dependency_generator 0
-%define __find_requires %{{nil}}
-%define __find_provides %{{nil}}
-# Alternatively, filtering:
+# Use modern dependency filtering
 %global __provides_exclude_from ^/opt/{package_name}/.*$
 %global __requires_exclude_from ^/opt/{package_name}/.*$
 
@@ -245,9 +241,13 @@ Categories=Development;IDE;
 StartupNotify=true
 EOF
 
-# Create symlink in /usr/bin
+# Create wrapper script in /usr/bin instead of symlink
 mkdir -p %{{buildroot}}%{{_bindir}}
-ln -s /opt/{package_name}/eclipse %{{buildroot}}%{{_bindir}}/{package_name}
+cat > %{{buildroot}}%{{_bindir}}/{package_name} <<EOF_WRAPPER
+#!/bin/sh
+exec /opt/{package_name}/eclipse "\$@"
+EOF_WRAPPER
+chmod 755 %{{buildroot}}%{{_bindir}}/{package_name}
 
 %files
 /opt/{package_name}
